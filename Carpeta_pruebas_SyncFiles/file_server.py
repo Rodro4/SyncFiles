@@ -40,7 +40,30 @@ def apply_changes(local_file_path, changes):
     # Create a combined set of changes
     combined_lines = [line for line in local_lines if not any(line == deletion for deletion in deletions)]
     combined_lines.extend(addition for addition in additions if addition not in combined_lines)
+    #combined_lines = [line for line in combined_lines if not (line.startswith('+') or line.startswith('-'))]
+    
+    
+    
+    # Lista para almacenar las líneas filtradas
+    filtered_lines = []
+
+    # Itera sobre cada línea en combined_lines
+    for line in combined_lines:
+        # Verifica si la línea no comienza con '+' ni con '-'
+        if not (line.startswith('+') or line.startswith('-')):
+            # Agrega la línea a filtered_lines si cumple la condición
+            filtered_lines.append(line)
+        if (line.startswith('+')):
+            filtered_lines.append(line[1:].strip())
+
+    # Actualiza combined_lines con las líneas filtradas
+    combined_lines = filtered_lines
+
+    
+    
+    
     combined_lines = [line for line in combined_lines if not (line.startswith('+') or line.startswith('-'))]
+    
 
     with open(local_file_path, 'w') as file:
         for line in combined_lines:
