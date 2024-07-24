@@ -8,8 +8,11 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 
@@ -40,7 +43,7 @@ public class MainActivity extends Activity {
         syncButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                sendFile();
+                syncFile();
             }
         });
     }
@@ -64,7 +67,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void sendFile() {
+    private void syncFile() {
         if (fileUri == null) {
             Toast.makeText(this, "No se ha seleccionado ningún archivo", Toast.LENGTH_SHORT).show();
             return;
@@ -78,18 +81,15 @@ public class MainActivity extends Activity {
                     Socket socket = new Socket(serverAddr, SERVER_PORT);
 
                     InputStream inputStream = getContentResolver().openInputStream(fileUri);
-                    byte[] buffer = new byte[1024];
-                    int bytesRead;
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                    PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
 
-                    OutputStream outputStream = socket.getOutputStream();
-
-                    // Escribir el contenido del archivo en el socket
-                    while ((bytesRead = inputStream.read(buffer)) != -1) {
-                        outputStream.write(buffer, 0, bytesRead);
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        writer.println(line);
                     }
 
-                    inputStream.close();
-                    outputStream.flush();
+                    reader.close();
                     socket.close();
 
                     runOnUiThread(new Runnable() {
@@ -100,6 +100,12 @@ public class MainActivity extends Activity {
                     });
                 } catch (Exception e) {
                     e.printStackTrace();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this, "Error al sincronizar archivo", Toast.LENGTH_SHORT).show();
+                        }
+                    });
                 }
             }
         }).start();
