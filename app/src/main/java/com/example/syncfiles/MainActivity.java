@@ -2,10 +2,13 @@ package com.example.syncfiles;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
@@ -19,20 +22,28 @@ import java.net.Socket;
 
 public class MainActivity extends Activity {
     private static final int SERVER_PORT = 65432;
-    private static final String SERVER_IP = "192.168.1.137"; // Cambia esto por la IP de tu PC
     private static final int PICK_FILE_REQUEST = 1;
 
+    private EditText ipAddressEditText;
     private Button selectFileButton;
     private Button syncButton;
     private Uri fileUri;
+    private SharedPreferences sharedPreferences;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+
+        ipAddressEditText = findViewById(R.id.ipAddressEditText);
         selectFileButton = findViewById(R.id.buttonSelectFile);
         syncButton = findViewById(R.id.buttonSync);
+
+        // Load last used IP
+        String lastIp = sharedPreferences.getString("last_ip", "");
+        ipAddressEditText.setText(lastIp);
 
         selectFileButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -74,11 +85,20 @@ public class MainActivity extends Activity {
             return;
         }
 
+        final String serverIp = ipAddressEditText.getText().toString().trim();
+        if (serverIp.isEmpty()) {
+            Toast.makeText(this, "Por favor, ingrese la IP del servidor", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Save the IP to SharedPreferences
+        sharedPreferences.edit().putString("last_ip", serverIp).apply();
+
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    InetAddress serverAddr = InetAddress.getByName(SERVER_IP);
+                    InetAddress serverAddr = InetAddress.getByName(serverIp);
                     Socket socket = new Socket(serverAddr, SERVER_PORT);
 
                     InputStream inputStream = getContentResolver().openInputStream(fileUri);
@@ -105,7 +125,7 @@ public class MainActivity extends Activity {
                     serverReader.close();
                     socket.close();
 
-                    OutputStream outputStream = getContentResolver().openOutputStream(fileUri);
+                    OutputStream outputStream = getContentResolver().openOutputStream(fileUri, "wt");
                     BufferedWriter fileWriter = new BufferedWriter(new OutputStreamWriter(outputStream));
                     fileWriter.write(stringBuilder.toString());
                     fileWriter.flush();
