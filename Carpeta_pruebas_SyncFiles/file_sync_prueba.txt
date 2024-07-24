@@ -1,5 +1,0 @@
-pan
-queso
--lomo
-+pc
-agua

@@ -9,7 +9,7 @@
         android:id="@+id/ipAddressEditText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Ingrese la IP del servidor" />
+        android:hint="Server IP" />
 
     <Button
         android:id="@+id/buttonSelectFile"

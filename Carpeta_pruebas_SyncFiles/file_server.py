@@ -2,6 +2,7 @@ import socket
 import tkinter as tk
 from tkinter import filedialog
 import json
+import os
 
 SERVER_PORT = 65432
 CONFIG_FILE = 'config.json'
@@ -18,11 +19,11 @@ def save_config(ip, file_path):
     with open(CONFIG_FILE, 'w') as file:
         json.dump({'last_ip': ip, 'last_file': file_path}, file)
 
-def apply_changes(file_path, changes):
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
+def apply_changes(local_file_path, changes):
+    with open(local_file_path, 'r') as file:
+        local_lines = file.readlines()
 
-    lines = [line.strip() for line in lines]
+    local_lines = [line.strip() for line in local_lines]
 
     additions = []
     deletions = []
@@ -36,46 +37,32 @@ def apply_changes(file_path, changes):
             elif action == '-':
                 deletions.append(content)
 
-    # Apply deletions
-    for deletion in deletions:
-        if deletion in lines:
-            lines.remove(deletion)
+    # Create a combined set of changes
+    combined_lines = [line for line in local_lines if not any(line == deletion for deletion in deletions)]
+    combined_lines.extend(addition for addition in additions if addition not in combined_lines)
+    combined_lines = [line for line in combined_lines if not (line.startswith('+') or line.startswith('-'))]
 
-    # Apply additions
-    for addition in additions:
-        lines.append(addition)
-
-    # Filter out lines starting with + or -
-    lines = [line for line in lines if not (line.startswith('+') or line.startswith('-'))]
-
-    with open(file_path, 'w') as file:
-        for line in lines:
+    with open(local_file_path, 'w') as file:
+        for line in combined_lines:
             file.write(line + '\n')
 
-    return additions, deletions
+    return combined_lines
 
-def sync_changes(file_path, client_socket, additions, deletions):
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
+def sync_changes(local_file_path, client_socket):
+    client_changes = []
+    reader = client_socket.makefile('r')
+    
+    while True:
+        data = reader.readline()
+        if not data:
+            break
+        client_changes.append(data.strip())
 
-    lines = [line.strip() for line in lines]
+    combined_lines = apply_changes(local_file_path, client_changes)
 
-    # Apply additions
-    for addition in additions:
-        lines.append(addition)
-
-    # Apply deletions
-    for deletion in deletions:
-        if deletion in lines:
-            lines.remove(deletion)
-
-    with open(file_path, 'w') as file:
-        for line in lines:
-            file.write(line + '\n')
-
-    # Send the updated file to the client
+    # Send the combined file back to the client
     writer = client_socket.makefile('w')
-    for line in lines:
+    for line in combined_lines:
         writer.write(line + '\n')
     writer.flush()
 
@@ -89,18 +76,8 @@ def start_server(ip, file_path):
             client_socket, client_address = server_socket.accept()
             with client_socket:
                 print(f"Connected by {client_address}")
-                changes = []
-                reader = client_socket.makefile('r')
-
-                while True:
-                    data = reader.readline()
-                    if not data:
-                        break
-                    changes.append(data.strip())
-
-                additions, deletions = apply_changes(file_path, changes)
-                sync_changes(file_path, client_socket, additions, deletions)
-                print(f"Applied changes and synced file with {client_address}")
+                sync_changes(file_path, client_socket)
+                print(f"Synced file with {client_address}")
 
 def on_start():
     ip = ip_entry.get()
@@ -130,8 +107,9 @@ file_entry = tk.Entry(root)
 file_entry.grid(row=1, column=1, padx=10, pady=10)
 file_entry.insert(0, last_file)
 
-tk.Button(root, text="Browse", command=lambda: file_entry.insert(0, filedialog.askopenfilename())).grid(row=1, column=2, padx=10, pady=10)
-start_button = tk.Button(root, text="Start Server", command=on_start)
+tk.Button(root, text="Select File", command=lambda: file_entry.insert(0, filedialog.askopenfilename())).grid(row=1, column=2, padx=10, pady=10)
+
+start_button = tk.Button(root, text="Start", command=on_start)
 start_button.grid(row=2, column=0, columnspan=3, padx=10, pady=10)
 
 root.mainloop()
