@@ -1,1 +1,5 @@
-prueba
+pan
+queso
+-lomo
++pc
+agua
