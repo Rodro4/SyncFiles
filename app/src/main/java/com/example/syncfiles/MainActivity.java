@@ -9,10 +9,11 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintWriter;
+import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 
@@ -82,15 +83,33 @@ public class MainActivity extends Activity {
 
                     InputStream inputStream = getContentResolver().openInputStream(fileUri);
                     BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-                    PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+                    BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 
                     String line;
                     while ((line = reader.readLine()) != null) {
-                        writer.println(line);
+                        writer.write(line);
+                        writer.newLine();
+                    }
+
+                    writer.flush();
+                    socket.shutdownOutput();
+
+                    BufferedReader serverReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    StringBuilder stringBuilder = new StringBuilder();
+
+                    while ((line = serverReader.readLine()) != null) {
+                        stringBuilder.append(line).append("\n");
                     }
 
                     reader.close();
+                    serverReader.close();
                     socket.close();
+
+                    OutputStream outputStream = getContentResolver().openOutputStream(fileUri);
+                    BufferedWriter fileWriter = new BufferedWriter(new OutputStreamWriter(outputStream));
+                    fileWriter.write(stringBuilder.toString());
+                    fileWriter.flush();
+                    fileWriter.close();
 
                     runOnUiThread(new Runnable() {
                         @Override
